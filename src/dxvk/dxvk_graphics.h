@@ -113,7 +113,7 @@ namespace dxvk {
     VkPipelineColorBlendStateCreateInfo             cbInfo = { VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO };
     VkPipelineMultisampleStateCreateInfo            msInfo = { VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO };
 
-    uint32_t                                        msSampleMask               = 0u;
+    VkSampleMask                                    msSampleMask               = 0u;
     VkBool32                                        cbUseDynamicBlendConstants = VK_FALSE;
 
     std::array<VkPipelineColorBlendAttachmentState, MaxNumRenderTargets> cbAttachments  = { };
@@ -606,12 +606,10 @@ namespace dxvk {
       const DxvkGraphicsPipelineBaseInstanceKey& key) const;
     
     VkPipeline getOptimizedPipeline(
-      const DxvkGraphicsPipelineStateInfo& state,
-            VkPipelineCreateFlags          flags);
+      const DxvkGraphicsPipelineStateInfo& state);
 
     VkPipeline createOptimizedPipeline(
-      const DxvkGraphicsPipelineFastInstanceKey& key,
-            VkPipelineCreateFlags          flags) const;
+      const DxvkGraphicsPipelineFastInstanceKey& key) const;
 
     void destroyBasePipelines();
 

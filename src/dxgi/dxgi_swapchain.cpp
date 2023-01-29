@@ -7,7 +7,7 @@
 namespace dxvk {
   
   DxgiSwapChain::DxgiSwapChain(
-          IDXGIFactory*               pFactory,
+          DxgiFactory*                pFactory,
           IDXGIVkSwapChain*           pPresenter,
           HWND                        hWnd,
     const DXGI_SWAP_CHAIN_DESC1*      pDesc,
@@ -523,6 +523,17 @@ namespace dxvk {
     if (!pColorSpaceSupport)
       return E_INVALIDARG;
 
+    // Don't expose any color spaces other than standard
+    // sRGB if the enableHDR option is not set.
+    //
+    // If we ever have a use for the non-SRGB non-HDR colorspaces
+    // some day, we may want to revisit this.
+    if (ColorSpace != DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709
+     && !m_factory->GetOptions()->enableHDR) {
+      *pColorSpaceSupport = 0;
+      return S_OK;
+    }
+
     UINT support = m_presenter->CheckColorSpaceSupport(ColorSpace);
     *pColorSpaceSupport = support;
     return S_OK;
@@ -536,7 +547,13 @@ namespace dxvk {
       return E_INVALIDARG;
 
     std::lock_guard<dxvk::mutex> lock(m_lockBuffer);
-    return m_presenter->SetColorSpace(ColorSpace);
+    HRESULT hr = m_presenter->SetColorSpace(ColorSpace);
+    if (SUCCEEDED(hr)) {
+      // If this was a colorspace other than our current one,
+      // punt us into that one on the DXGI output.
+      m_monitorInfo->PuntColorSpace(ColorSpace);
+    }
+    return hr;
   }
 
   
@@ -696,7 +713,7 @@ namespace dxvk {
         "DXGI: Failed to query closest mode:",
         "\n  Format: ", preferredMode.Format,
         "\n  Mode:   ", preferredMode.Width, "x", preferredMode.Height,
-          "@", preferredMode.RefreshRate.Numerator / preferredMode.RefreshRate.Denominator));
+          "@", preferredMode.RefreshRate.Numerator / std::max(preferredMode.RefreshRate.Denominator, 1u)));
       return hr;
     }
 

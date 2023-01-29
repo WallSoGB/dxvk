@@ -1792,14 +1792,16 @@ namespace dxvk {
       ~(VK_BUFFER_USAGE_TRANSFER_DST_BIT |
         VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
 
-    if (usage & (VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT))
+    // Fast early-out for plain uniform buffers, very common
+    if (likely(usage == VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)) {
+      m_descriptorState.dirtyBuffers(buffer->getShaderStages());
+      return;
+    }
+
+    if (usage & (VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT))
       m_descriptorState.dirtyBuffers(buffer->getShaderStages());
 
-    // Fast early-out for plain buffers, very common
-    if (likely(!(usage & ~(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT))))
-      return;
-    
-    if (usage & (VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT))
+    if (usage & (VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT))
       m_descriptorState.dirtyViews(buffer->getShaderStages());
 
     if (usage & VK_BUFFER_USAGE_INDEX_BUFFER_BIT)
@@ -2465,8 +2467,11 @@ namespace dxvk {
       m_flags.set(DxvkContextFlag::GpDirtyRasterizerState);
     }
 
-    if (unlikely(!m_features.test(DxvkContextFeature::VariableMultisampleRate))) {
-      if (rs.sampleCount != m_state.gp.state.rs.sampleCount())
+    if (unlikely(rs.sampleCount != m_state.gp.state.rs.sampleCount())) {
+      if (!m_state.gp.state.ms.sampleCount())
+        m_flags.set(DxvkContextFlag::GpDirtyMultisampleState);
+
+      if (!m_features.test(DxvkContextFeature::VariableMultisampleRate))
         m_flags.set(DxvkContextFlag::GpDirtyFramebuffer);
     }
 
@@ -2497,7 +2502,9 @@ namespace dxvk {
       ms.sampleMask,
       ms.enableAlphaToCoverage);
     
-    m_flags.set(DxvkContextFlag::GpDirtyPipelineState);
+    m_flags.set(
+      DxvkContextFlag::GpDirtyPipelineState,
+      DxvkContextFlag::GpDirtyMultisampleState);
   }
   
   
@@ -4382,6 +4389,7 @@ namespace dxvk {
         DxvkContextFlag::GpDirtyXfbBuffers,
         DxvkContextFlag::GpDirtyBlendConstants,
         DxvkContextFlag::GpDirtyStencilRef,
+        DxvkContextFlag::GpDirtyMultisampleState,
         DxvkContextFlag::GpDirtyRasterizerState,
         DxvkContextFlag::GpDirtyViewport,
         DxvkContextFlag::GpDirtyDepthBias,
@@ -4810,6 +4818,7 @@ namespace dxvk {
       DxvkContextFlag::GpDirtyXfbBuffers,
       DxvkContextFlag::GpDirtyBlendConstants,
       DxvkContextFlag::GpDirtyStencilRef,
+      DxvkContextFlag::GpDirtyMultisampleState,
       DxvkContextFlag::GpDirtyRasterizerState,
       DxvkContextFlag::GpDirtyViewport,
       DxvkContextFlag::GpDirtyDepthBias,
@@ -4873,6 +4882,7 @@ namespace dxvk {
                 DxvkContextFlag::GpDynamicDepthBias,
                 DxvkContextFlag::GpDynamicDepthBounds,
                 DxvkContextFlag::GpDynamicStencilRef,
+                DxvkContextFlag::GpDynamicMultisampleState,
                 DxvkContextFlag::GpDynamicRasterizerState,
                 DxvkContextFlag::GpIndependentSets);
     
@@ -4905,6 +4915,10 @@ namespace dxvk {
 
       if (m_device->features().core.features.depthBounds)
         m_flags.set(DxvkContextFlag::GpDynamicDepthBounds);
+
+      if (m_device->features().extExtendedDynamicState3.extendedDynamicState3RasterizationSamples
+       && m_device->features().extExtendedDynamicState3.extendedDynamicState3SampleMask)
+        m_flags.set(DxvkContextFlag::GpDynamicMultisampleState);
     } else {
       m_flags.set(m_state.gp.state.useDynamicDepthBias()
         ? DxvkContextFlag::GpDynamicDepthBias
@@ -4918,7 +4932,9 @@ namespace dxvk {
         ? DxvkContextFlag::GpDynamicStencilRef
         : DxvkContextFlag::GpDirtyStencilRef);
 
-      m_flags.set(DxvkContextFlag::GpDirtyDepthStencilState);
+      m_flags.set(
+        DxvkContextFlag::GpDirtyDepthStencilState,
+        DxvkContextFlag::GpDirtyMultisampleState);
     }
 
     // If necessary, dirty descriptor sets due to layout incompatibilities
@@ -5616,6 +5632,27 @@ namespace dxvk {
       }
     }
 
+    if (unlikely(m_flags.all(DxvkContextFlag::GpDirtyMultisampleState,
+                             DxvkContextFlag::GpDynamicMultisampleState))) {
+      m_flags.clr(DxvkContextFlag::GpDirtyMultisampleState);
+
+      // Infer actual sample count from both the multisample state
+      // and rasterizer state, just like during pipeline creation
+      VkSampleCountFlagBits sampleCount = VkSampleCountFlagBits(m_state.gp.state.ms.sampleCount());
+
+      if (!sampleCount) {
+        sampleCount = m_state.gp.state.rs.sampleCount()
+          ? VkSampleCountFlagBits(m_state.gp.state.rs.sampleCount())
+          : VK_SAMPLE_COUNT_1_BIT;
+      }
+
+      VkSampleMask sampleMask = m_state.gp.state.ms.sampleMask() & ((1u << sampleCount) - 1u);
+      m_cmd->cmdSetMultisampleState(sampleCount, sampleMask);
+
+      if (m_device->features().extExtendedDynamicState3.extendedDynamicState3AlphaToCoverageEnable)
+        m_cmd->cmdSetAlphaToCoverageState(m_state.gp.state.ms.enableAlphaToCoverage());
+    }
+
     if (unlikely(m_flags.all(DxvkContextFlag::GpDirtyBlendConstants,
                              DxvkContextFlag::GpDynamicBlendConstants))) {
       m_flags.clr(DxvkContextFlag::GpDirtyBlendConstants);
@@ -6210,6 +6247,7 @@ namespace dxvk {
       DxvkContextFlag::GpDirtyXfbBuffers,
       DxvkContextFlag::GpDirtyBlendConstants,
       DxvkContextFlag::GpDirtyStencilRef,
+      DxvkContextFlag::GpDirtyMultisampleState,
       DxvkContextFlag::GpDirtyRasterizerState,
       DxvkContextFlag::GpDirtyViewport,
       DxvkContextFlag::GpDirtyDepthBias,

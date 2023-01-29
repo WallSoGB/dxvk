@@ -258,6 +258,9 @@ namespace dxvk {
     info.uniformSize = m_immConstData.size();
     info.uniformData = m_immConstData.data();
 
+    if (m_programInfo.type() == DxbcProgramType::HullShader)
+      info.patchVertexCount = m_hs.vertexCountIn;
+
     if (m_programInfo.type() == DxbcProgramType::PixelShader && m_ps.pushConstantId)
       info.pushConstSize = sizeof(DxbcPushConstants);
 
@@ -715,6 +718,14 @@ namespace dxvk {
         m_module.decorate(varId, spv::DecorationSample);
       }
 
+      if (m_moduleInfo.options.forceSampleRateShading) {
+        if (im == DxbcInterpolationMode::Linear
+         || im == DxbcInterpolationMode::LinearNoPerspective) {
+          m_module.enableCapability(spv::CapabilitySampleRateShading);
+          m_module.decorate(varId, spv::DecorationSample);
+        }
+      }
+
       // Declare the input slot as defined
       m_inputMask |= 1u << regIdx;
       m_vArrayLength = std::max(m_vArrayLength, regIdx + 1);
@@ -851,6 +862,7 @@ namespace dxvk {
     binding.viewType = VK_IMAGE_VIEW_TYPE_MAX_ENUM;
     binding.access = VK_ACCESS_UNIFORM_READ_BIT;
     binding.resourceBinding = bindingId;
+    binding.uboSet = VK_TRUE;
     m_bindings.push_back(binding);
   }
 

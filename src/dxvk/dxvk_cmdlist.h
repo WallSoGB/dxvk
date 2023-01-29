@@ -198,18 +198,9 @@ namespace dxvk {
     
     /**
      * \brief Submits command list
-     * 
-     * \param [in] semaphore Global timeline semaphore
-     * \param [in,out] semaphoreValue Semaphore value. On input,
-     *    this is the last signaled value of the semaphore so that
-     *    synchronization can take place as needed. On ouput, this
-     *    will contain the new value the semaphore gets signaled
-     *    to by this submission.
      * \returns Submission status
      */
-    VkResult submit(
-            VkSemaphore       semaphore,
-            uint64_t&         semaphoreValue);
+    VkResult submit();
     
     /**
      * \brief Stat counters
@@ -798,7 +789,13 @@ namespace dxvk {
       m_vkd->vkCmdUpdateBuffer(getCmdBuffer(cmdBuffer),
         dstBuffer, dstOffset, dataSize, pData);
     }
-    
+
+
+    void cmdSetAlphaToCoverageState(
+            VkBool32                alphaToCoverageEnable) {
+      m_vkd->vkCmdSetAlphaToCoverageEnableEXT(m_cmd.execBuffer, alphaToCoverageEnable);
+    }
+
     
     void cmdSetBlendConstants(const float blendConstants[4]) {
       m_vkd->vkCmdSetBlendConstants(m_cmd.execBuffer, blendConstants);
@@ -865,6 +862,14 @@ namespace dxvk {
       m_cmd.usedFlags.set(DxvkCmdBuffer::ExecBuffer);
 
       m_vkd->vkCmdSetEvent2(m_cmd.execBuffer, event, dependencyInfo);
+    }
+
+
+    void cmdSetMultisampleState(
+            VkSampleCountFlagBits   sampleCount,
+            VkSampleMask            sampleMask) {
+      m_vkd->vkCmdSetRasterizationSamplesEXT(m_cmd.execBuffer, sampleCount);
+      m_vkd->vkCmdSetSampleMaskEXT(m_cmd.execBuffer, sampleCount, &sampleMask);
     }
 
 
@@ -1015,6 +1020,8 @@ namespace dxvk {
     Rc<DxvkCommandPool>       m_graphicsPool;
     Rc<DxvkCommandPool>       m_transferPool;
 
+    VkSemaphore               m_bindSemaphore = VK_NULL_HANDLE;
+    VkSemaphore               m_postSemaphore = VK_NULL_HANDLE;
     VkSemaphore               m_sdmaSemaphore = VK_NULL_HANDLE;
     VkFence                   m_fence         = VK_NULL_HANDLE;
 

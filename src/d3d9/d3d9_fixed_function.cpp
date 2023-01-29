@@ -14,6 +14,7 @@ namespace dxvk {
 
   D3D9FixedFunctionOptions::D3D9FixedFunctionOptions(const D3D9Options* options) {
     invariantPosition = options->invariantPosition;
+    forceSampleRateShading = options->forceSampleRateShading;
   }
 
   uint32_t DoFixedFunctionFog(D3D9ShaderSpecConstantManager& spec, SpirvModule& spvModule, const D3D9FogContext& fogCtx) {
@@ -422,6 +423,7 @@ namespace dxvk {
     binding.resourceBinding = getSpecConstantBufferSlot();
     binding.viewType        = VK_IMAGE_VIEW_TYPE_MAX_ENUM;
     binding.access          = VK_ACCESS_UNIFORM_READ_BIT;
+    binding.uboSet          = VK_TRUE;
     bindings.push_back(binding);
 
     return specBlock;
@@ -933,10 +935,16 @@ namespace dxvk {
 
     uint32_t ptr = m_module.newVar(ptrType, storageClass);
 
-    if (builtin == spv::BuiltInMax)
+    if (builtin == spv::BuiltInMax) {
       m_module.decorateLocation(ptr, slot);
-    else
+
+      if (isPS() && input && m_options.forceSampleRateShading) {
+        m_module.enableCapability(spv::CapabilitySampleRateShading);
+        m_module.decorate(ptr, spv::DecorationSample);
+      }
+    } else {
       m_module.decorateBuiltIn(ptr, builtin);
+    }
 
     bool diffuseOrSpec = semantic == DxsoSemantic{ DxsoUsage::Color, 0 }
                       || semantic == DxsoSemantic{ DxsoUsage::Color, 1 };
@@ -1570,6 +1578,7 @@ namespace dxvk {
     binding.resourceBinding = bindingId;
     binding.viewType        = VK_IMAGE_VIEW_TYPE_MAX_ENUM;
     binding.access          = VK_ACCESS_UNIFORM_READ_BIT;
+    binding.uboSet          = VK_TRUE;
     m_bindings.push_back(binding);
   }
 
@@ -1609,6 +1618,7 @@ namespace dxvk {
     binding.resourceBinding = bindingId;
     binding.viewType        = VK_IMAGE_VIEW_TYPE_MAX_ENUM;
     binding.access          = VK_ACCESS_SHADER_READ_BIT;
+    binding.uboSet          = VK_TRUE;
     m_bindings.push_back(binding);
   }
 
@@ -2220,6 +2230,7 @@ namespace dxvk {
     binding.resourceBinding = bindingId;
     binding.viewType        = VK_IMAGE_VIEW_TYPE_MAX_ENUM;
     binding.access          = VK_ACCESS_UNIFORM_READ_BIT;
+    binding.uboSet          = VK_TRUE;
     m_bindings.push_back(binding);
 
     // Load constants
@@ -2307,6 +2318,7 @@ namespace dxvk {
     binding.resourceBinding = bindingId;
     binding.viewType        = VK_IMAGE_VIEW_TYPE_MAX_ENUM;
     binding.access          = VK_ACCESS_UNIFORM_READ_BIT;
+    binding.uboSet          = VK_TRUE;
     m_bindings.push_back(binding);
   }
 
@@ -2346,6 +2358,7 @@ namespace dxvk {
     binding.resourceBinding = bindingId;
     binding.viewType        = VK_IMAGE_VIEW_TYPE_MAX_ENUM;
     binding.access          = VK_ACCESS_UNIFORM_READ_BIT;
+    binding.uboSet          = VK_TRUE;
     m_bindings.push_back(binding);
 
     // Declare output array for clip distances

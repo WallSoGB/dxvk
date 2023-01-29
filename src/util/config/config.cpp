@@ -691,6 +691,23 @@ namespace dxvk {
     { R"(\\ffxiv\.exe$)", {{
       { "d3d9.textureMemory",                "0"   },
     }} },
+    /* Secret World Legends launcher           *
+     * Invisible UI                            */
+    { R"(\\Secret World Legends\\ClientPatcher\.exe$)", {{
+      { "d3d9.shaderModel",                 "2" },
+    }} },
+    /* Alien Rage                              *
+     * GTX 295 & disable Hack to fix shadows   */
+    { R"(\\(ShippingPC-AFEARGame|ARageMP)\.exe$)", {{
+      { "d3d9.customVendorId",              "10de" },
+      { "d3d9.customDeviceId",              "05E0" },
+      { "dxgi.nvapiHack",                   "False" },
+    }} },
+    /* BlazBlue Centralfiction                 *
+     * Temporary crash workaround              */
+    { R"(\\BBCF\.exe$)", {{
+      { "d3d9.textureMemory",               "0"   },
+    }} },
   }};
 
 

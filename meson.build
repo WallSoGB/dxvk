@@ -1,4 +1,4 @@
-project('dxvk', ['c', 'cpp'], version : 'v2.0', meson_version : '>= 0.49', default_options : [ 'cpp_std=c++17', 'warning_level=2' ])
+project('dxvk', ['c', 'cpp'], version : 'v2.1', meson_version : '>= 0.49', default_options : [ 'cpp_std=c++17', 'warning_level=2' ])
 
 cpu_family = target_machine.cpu_family()
 platform   = target_machine.system()
@@ -103,8 +103,6 @@ if platform == 'windows'
   dxvk_name_prefix = ''
   compiler_args += ['-DDXVK_WSI_WIN32']
 else
-  lib_sdl2   = cpp.find_library('SDL2')
-
   wrc           = find_program('touch')
   wrc_generator = generator(wrc, output : [ '@BASENAME@_ignored.h' ], arguments : [ '@OUTPUT@' ] )
 
@@ -114,9 +112,17 @@ else
     './include/native/directx'
   ]
 
-  dxvk_wsi = 'sdl2'
+  dxvk_wsi = get_option('dxvk_native_wsi')
+  
+  if dxvk_wsi == 'sdl2'
+    lib_sdl2 = cpp.find_library('SDL2')
+    compiler_args += ['-DDXVK_WSI_SDL2']
+  elif dxvk_wsi == 'glfw'
+    lib_glfw = cpp.find_library('glfw')
+    compiler_args += ['-DDXVK_WSI_GLFW']
+  endif
+  
   dxvk_name_prefix = 'libdxvk_'
-  compiler_args += ['-DDXVK_WSI_SDL2']
 
   link_args += [
     '-static-libgcc',

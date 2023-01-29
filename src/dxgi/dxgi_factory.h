@@ -9,7 +9,34 @@
 #include "../dxvk/dxvk_instance.h"
 
 namespace dxvk {
-    
+
+  class DxgiFactory;
+
+  class DxgiVkFactory : public IDXGIVkInteropFactory {
+
+  public:
+
+    DxgiVkFactory(DxgiFactory* pFactory);
+
+    ULONG STDMETHODCALLTYPE AddRef();
+
+    ULONG STDMETHODCALLTYPE Release();
+
+    HRESULT STDMETHODCALLTYPE QueryInterface(
+            REFIID                    riid,
+            void**                    ppvObject);
+
+    void STDMETHODCALLTYPE GetVulkanInstance(
+            VkInstance*               pInstance,
+            PFN_vkGetInstanceProcAddr* ppfnVkGetInstanceProcAddr);
+
+  private:
+
+    DxgiFactory* m_factory;
+
+  };
+
+
   class DxgiFactory : public DxgiObject<IDXGIFactory7> {
     
   public:
@@ -146,8 +173,9 @@ namespace dxvk {
   private:
     
     Rc<DxvkInstance> m_instance;
-    DxgiMonitorInfo  m_monitorInfo;
+    DxgiVkFactory    m_interop;
     DxgiOptions      m_options;
+    DxgiMonitorInfo  m_monitorInfo;
     UINT             m_flags;
     
     HWND m_associatedWindow = nullptr;
