@@ -1,5 +1,7 @@
 #pragma once
 
+#include <d3d9.h>
+
 #include "../util/config/config.h"
 #include "../dxvk/dxvk_device.h"
 
@@ -142,6 +144,40 @@ namespace dxvk {
 
     /// Don't use non seamless cube maps
     bool seamlessCubes;
+
+    /// upgrades render targets
+    bool upgradeRenderTargets;
+
+    /// enable upgrade swapchain
+    bool enableSwapchainUpgrade;
+
+    /// Upgrade output format in the virtual D3D9 swapchain
+    /// may or may not cause issues. Basically cosmetics ;)
+    bool upgradeOutputFormatInternal;
+
+    /// log formats used
+    bool logFormatsUsed;
+
+    /// which output format to upgrade to
+    VkFormat upgradeOutputFormatTo;
+
+    /// which internal output format upgrade to
+    D3DFORMAT upgradeOutputFormatInternalTo;
+
+    /// output color space to upgrade to
+    VkColorSpaceKHR upgradeOutputColorSpaceTo;
+
+    D3DFORMAT upgradeRT_RGBA8_to;
+    D3DFORMAT upgradeRT_RGBX8_to;
+    D3DFORMAT upgradeRT_BGRA8_to;
+    D3DFORMAT upgradeRT_BGRX8_to;
+    D3DFORMAT upgradeRT_RGB10A2_to;
+    D3DFORMAT upgradeRT_BGR10A2_to;
+
+    /// enfore fullscreen exclusive or windowed mode
+    /// for the internal swapchain
+    bool enforceWindowModeInternally;
+    WINBOOL enforcedWindowModeInternally;
 
     /// How much virtual memory will be used for textures (in MB).
     int32_t textureMemory;

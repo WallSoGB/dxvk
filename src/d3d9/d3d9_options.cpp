@@ -4,6 +4,39 @@
 
 namespace dxvk {
 
+  D3DFORMAT D3DFMT_UpgradeHelper(const std::string str) {
+    if (str == "disabled")
+      return D3DFMT_UNKNOWN;
+    else if (str == "rgba16")
+      return D3DFMT_A16B16G16R16;
+    else if (str == "rgb10a2")
+      return D3DFMT_A2B10G10R10;
+    else if (str == "bgr10a2")
+      return D3DFMT_A2R10G10B10;
+    else
+      return D3DFMT_A16B16G16R16F;
+  }
+
+  VkFormat VkFormat_UpgradeHelper(const std::string str) {
+    if (str == "disabled")
+      return VK_FORMAT_UNDEFINED;
+    else if (str == "rgba16")
+      return VK_FORMAT_R16G16B16A16_UNORM;
+    else if (str == "rgb10a2")
+      return VK_FORMAT_A2B10G10R10_UNORM_PACK32;
+    else if (str == "bgr10a2")
+      return VK_FORMAT_A2R10G10B10_UNORM_PACK32;
+    else
+      return VK_FORMAT_R16G16B16A16_SFLOAT;
+  }
+
+  WINBOOL D3D9_WindowModeHelper(const std::string str) {
+    if (str == "windowed")
+      return TRUE;
+    else
+      return FALSE;
+  }
+
   static int32_t parsePciId(const std::string& str) {
     if (str.size() != 4)
       return -1;
@@ -39,41 +72,88 @@ namespace dxvk {
       ? this->customDeviceId
       : (adapter != nullptr ? adapter->deviceProperties().vendorID : 0);
 
-    this->maxFrameLatency               = config.getOption<int32_t>     ("d3d9.maxFrameLatency",               0);
-    this->maxFrameRate                  = config.getOption<int32_t>     ("d3d9.maxFrameRate",                  0);
-    this->presentInterval               = config.getOption<int32_t>     ("d3d9.presentInterval",               -1);
-    this->shaderModel                   = config.getOption<int32_t>     ("d3d9.shaderModel",                   3);
-    this->dpiAware                      = config.getOption<bool>        ("d3d9.dpiAware",                      true);
-    this->strictConstantCopies          = config.getOption<bool>        ("d3d9.strictConstantCopies",          false);
-    this->strictPow                     = config.getOption<bool>        ("d3d9.strictPow",                     true);
-    this->lenientClear                  = config.getOption<bool>        ("d3d9.lenientClear",                  false);
-    this->numBackBuffers                = config.getOption<int32_t>     ("d3d9.numBackBuffers",                0);
-    this->deferSurfaceCreation          = config.getOption<bool>        ("d3d9.deferSurfaceCreation",          false);
-    this->samplerAnisotropy             = config.getOption<int32_t>     ("d3d9.samplerAnisotropy",             -1);
-    this->maxAvailableMemory            = config.getOption<int32_t>     ("d3d9.maxAvailableMemory",            4096);
-    this->supportDFFormats              = config.getOption<bool>        ("d3d9.supportDFFormats",              true);
-    this->supportX4R4G4B4               = config.getOption<bool>        ("d3d9.supportX4R4G4B4",               true);
-    this->supportD32                    = config.getOption<bool>        ("d3d9.supportD32",                    true);
-    this->useD32forD24                  = config.getOption<bool>        ("d3d9.useD32forD24",                  false);
-    this->disableA8RT                   = config.getOption<bool>        ("d3d9.disableA8RT",                   false);
-    this->invariantPosition             = config.getOption<bool>        ("d3d9.invariantPosition",             true);
-    this->memoryTrackTest               = config.getOption<bool>        ("d3d9.memoryTrackTest",               false);
-    this->supportVCache                 = config.getOption<bool>        ("d3d9.supportVCache",                 vendorId == 0x10de);
-    this->enableDialogMode              = config.getOption<bool>        ("d3d9.enableDialogMode",              false);
-    this->forceSamplerTypeSpecConstants = config.getOption<bool>        ("d3d9.forceSamplerTypeSpecConstants", false);
-    this->forceSwapchainMSAA            = config.getOption<int32_t>     ("d3d9.forceSwapchainMSAA",            -1);
-    this->forceSampleRateShading        = config.getOption<bool>        ("d3d9.forceSampleRateShading",        false);
-    this->forceAspectRatio              = config.getOption<std::string> ("d3d9.forceAspectRatio",              "");
-    this->allowDiscard                  = config.getOption<bool>        ("d3d9.allowDiscard",                  true);
-    this->enumerateByDisplays           = config.getOption<bool>        ("d3d9.enumerateByDisplays",           true);
-    this->longMad                       = config.getOption<bool>        ("d3d9.longMad",                       false);
-    this->tearFree                      = config.getOption<Tristate>    ("d3d9.tearFree",                      Tristate::Auto);
-    this->apitraceMode                  = config.getOption<bool>        ("d3d9.apitraceMode",                  false);
-    this->deviceLocalConstantBuffers    = config.getOption<bool>        ("d3d9.deviceLocalConstantBuffers",    false);
-    this->allowDirectBufferMapping      = config.getOption<bool>        ("d3d9.allowDirectBufferMapping",      true);
-    this->seamlessCubes                 = config.getOption<bool>        ("d3d9.seamlessCubes",                 false);
-    this->textureMemory                 = config.getOption<int32_t>     ("d3d9.textureMemory",                100) << 20;
-    this->deviceLost                    = config.getOption<bool>        ("d3d9.deviceLost",                    false);
+    this->maxFrameLatency                      = config.getOption<int32_t>     ("d3d9.maxFrameLatency",               0);
+    this->maxFrameRate                         = config.getOption<int32_t>     ("d3d9.maxFrameRate",                  0);
+    this->presentInterval                      = config.getOption<int32_t>     ("d3d9.presentInterval",               -1);
+    this->shaderModel                          = config.getOption<int32_t>     ("d3d9.shaderModel",                   3);
+    this->dpiAware                             = config.getOption<bool>        ("d3d9.dpiAware",                      true);
+    this->strictConstantCopies                 = config.getOption<bool>        ("d3d9.strictConstantCopies",          false);
+    this->strictPow                            = config.getOption<bool>        ("d3d9.strictPow",                     true);
+    this->lenientClear                         = config.getOption<bool>        ("d3d9.lenientClear",                  false);
+    this->numBackBuffers                       = config.getOption<int32_t>     ("d3d9.numBackBuffers",                0);
+    this->deferSurfaceCreation                 = config.getOption<bool>        ("d3d9.deferSurfaceCreation",          false);
+    this->samplerAnisotropy                    = config.getOption<int32_t>     ("d3d9.samplerAnisotropy",             -1);
+    this->maxAvailableMemory                   = config.getOption<int32_t>     ("d3d9.maxAvailableMemory",            4096);
+    this->supportDFFormats                     = config.getOption<bool>        ("d3d9.supportDFFormats",              true);
+    this->supportX4R4G4B4                      = config.getOption<bool>        ("d3d9.supportX4R4G4B4",               true);
+    this->supportD32                           = config.getOption<bool>        ("d3d9.supportD32",                    true);
+    this->useD32forD24                         = config.getOption<bool>        ("d3d9.useD32forD24",                  false);
+    this->disableA8RT                          = config.getOption<bool>        ("d3d9.disableA8RT",                   false);
+    this->invariantPosition                    = config.getOption<bool>        ("d3d9.invariantPosition",             true);
+    this->memoryTrackTest                      = config.getOption<bool>        ("d3d9.memoryTrackTest",               false);
+    this->supportVCache                        = config.getOption<bool>        ("d3d9.supportVCache",                 vendorId == 0x10de);
+    this->enableDialogMode                     = config.getOption<bool>        ("d3d9.enableDialogMode",              false);
+    this->forceSamplerTypeSpecConstants        = config.getOption<bool>        ("d3d9.forceSamplerTypeSpecConstants", false);
+    this->forceSwapchainMSAA                   = config.getOption<int32_t>     ("d3d9.forceSwapchainMSAA",            -1);
+    this->forceSampleRateShading               = config.getOption<bool>        ("d3d9.forceSampleRateShading",        false);
+    this->forceAspectRatio                     = config.getOption<std::string> ("d3d9.forceAspectRatio",              "");
+    this->allowDiscard                         = config.getOption<bool>        ("d3d9.allowDiscard",                  true);
+    this->enumerateByDisplays                  = config.getOption<bool>        ("d3d9.enumerateByDisplays",           true);
+    this->longMad                              = config.getOption<bool>        ("d3d9.longMad",                       false);
+    this->tearFree                             = config.getOption<Tristate>    ("d3d9.tearFree",                      Tristate::Auto);
+    this->apitraceMode                         = config.getOption<bool>        ("d3d9.apitraceMode",                  false);
+    this->deviceLocalConstantBuffers           = config.getOption<bool>        ("d3d9.deviceLocalConstantBuffers",    false);
+    this->allowDirectBufferMapping             = config.getOption<bool>        ("d3d9.allowDirectBufferMapping",      true);
+    this->seamlessCubes                        = config.getOption<bool>        ("d3d9.seamlessCubes",                 false);
+    this->textureMemory                        = config.getOption<int32_t>     ("d3d9.textureMemory",                 100) << 20;
+    this->deviceLost                           = config.getOption<bool>        ("d3d9.deviceLost",                    false);
+
+    this->upgradeRenderTargets                 = config.getOption<bool>        ("d3d9.upgradeRenderTargets",          false);
+    this->enableSwapchainUpgrade               = config.getOption<bool>        ("d3d9.enableSwapchainUpgrade",        false);
+    this->upgradeOutputFormatInternal          = config.getOption<bool>        ("d3d9.upgradeOutputFormatInternal",   false);
+    this->logFormatsUsed                       = config.getOption<bool>        ("d3d9.logFormatsUsed",                false);
+
+
+    this->upgradeOutputFormatTo =
+      VkFormat_UpgradeHelper(Config::toLower(config.getOption<std::string>("d3d9.upgradeOutputFormatTo", "rgba16f")));
+    this->upgradeOutputFormatInternalTo =
+      D3DFMT_UpgradeHelper(Config::toLower(config.getOption<std::string>("d3d9.upgradeOutputFormatInternalTo", "rgba16f")));
+
+    std::string strUpgradeOutputColorSpaceTo =
+      Config::toLower(config.getOption<std::string>("d3d9.upgradeOutputColorSpaceTo", "scRGB"));
+    if (strUpgradeOutputColorSpaceTo == "disabled")
+      this->upgradeOutputColorSpaceTo = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+    else if (strUpgradeOutputColorSpaceTo == "bt709_non_linear")
+      this->upgradeOutputColorSpaceTo = VK_COLOR_SPACE_BT709_NONLINEAR_EXT;
+    else if (strUpgradeOutputColorSpaceTo == "pq")
+      this->upgradeOutputColorSpaceTo = VK_COLOR_SPACE_HDR10_ST2084_EXT;
+    else if (strUpgradeOutputColorSpaceTo == "bt2020_linear")
+      this->upgradeOutputColorSpaceTo = VK_COLOR_SPACE_BT2020_LINEAR_EXT;
+    else
+      this->upgradeOutputColorSpaceTo = VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT;
+
+    this->upgradeRT_RGBA8_to =
+      D3DFMT_UpgradeHelper(Config::toLower(config.getOption<std::string>("d3d9.upgradeRT_RGBA8_to",   "rgba16f")));
+    this->upgradeRT_RGBX8_to =
+      D3DFMT_UpgradeHelper(Config::toLower(config.getOption<std::string>("d3d9.upgradeRT_RGBX8_to",   "rgba16f")));
+    this->upgradeRT_BGRA8_to =
+      D3DFMT_UpgradeHelper(Config::toLower(config.getOption<std::string>("d3d9.upgradeRT_BGRA8_to",   "rgba16f")));
+    this->upgradeRT_BGRX8_to =
+      D3DFMT_UpgradeHelper(Config::toLower(config.getOption<std::string>("d3d9.upgradeRT_BGRX8_to",   "rgba16f")));
+    this->upgradeRT_RGB10A2_to =
+      D3DFMT_UpgradeHelper(Config::toLower(config.getOption<std::string>("d3d9.upgradeRT_RGB10A2_to", "rgba16f")));
+    this->upgradeRT_BGR10A2_to =
+      D3DFMT_UpgradeHelper(Config::toLower(config.getOption<std::string>("d3d9.upgradeRT_BGR10A2_to", "rgba16f")));
+
+
+    std::string strEnforceWindowModeInternally =
+      Config::toLower(config.getOption<std::string>("d3d9.enforceWindowModeInternally", "disabled"));
+    if (strEnforceWindowModeInternally == "windowed" | strEnforceWindowModeInternally == "fullscreen")
+      this->enforceWindowModeInternally = true;
+    else
+      this->enforceWindowModeInternally = false;
+    this->enforcedWindowModeInternally = D3D9_WindowModeHelper(strEnforceWindowModeInternally);
+
 
     std::string floatEmulation = Config::toLower(config.getOption<std::string>("d3d9.floatEmulation", "auto"));
     if (floatEmulation == "strict") {

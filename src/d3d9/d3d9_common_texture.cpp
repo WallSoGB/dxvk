@@ -10,6 +10,27 @@
 
 namespace dxvk {
 
+  void D3D9CommonTexture::RtUpgradeLogger(
+          D3D9Format originalFormat,
+          D3D9Format upgradedFormat)
+  {
+    if (m_device->GetOptions()->logFormatsUsed)
+      Logger::info(str::format("D3D9: render target upgrade:     ", originalFormat, " -> ", upgradedFormat));
+  }
+
+  void D3D9CommonTexture::FormatLogger(
+          D3D9Format Format,
+          bool       isRt)
+  {
+    if (m_device->GetOptions()->logFormatsUsed)
+    {
+      if (isRt)
+        Logger::info(str::format("D3D9: used render target format: ", Format));
+      else
+        Logger::info(str::format("D3D9: used D3D9 format:          ", Format));
+    }
+  }
+
   D3D9CommonTexture::D3D9CommonTexture(
           D3D9DeviceEx*             pDevice,
           IUnknown*                 pInterface,
@@ -37,8 +58,66 @@ namespace dxvk {
         throw DxvkError("D3D9: Incompatible pool type for texture sharing.");
       }
     }
+    if (m_device->GetOptions()->upgradeRenderTargets && (m_desc.Usage & D3DUSAGE_RENDERTARGET))
+    {
+      D3D9Format ugRT_RGBA8_to   = D3D9Format(m_device->GetOptions()->upgradeRT_RGBA8_to);
+      D3D9Format ugRT_RGBX8_to   = D3D9Format(m_device->GetOptions()->upgradeRT_RGBX8_to);
+      D3D9Format ugRT_BGRA8_to   = D3D9Format(m_device->GetOptions()->upgradeRT_BGRA8_to);
+      D3D9Format ugRT_BGRX8_to   = D3D9Format(m_device->GetOptions()->upgradeRT_BGRX8_to);
+      D3D9Format ugRT_RGB10A2_to = D3D9Format(m_device->GetOptions()->upgradeRT_RGB10A2_to);
+      D3D9Format ugRT_BGR10A2_to = D3D9Format(m_device->GetOptions()->upgradeRT_BGR10A2_to);
 
-    m_mapping = pDevice->LookupFormat(m_desc.Format);
+      if (m_desc.Format == D3D9Format::A8B8G8R8
+       && ugRT_RGBA8_to != D3D9Format::Unknown)
+      {
+        m_mapping = ConvertFormatUnfixed(ugRT_RGBA8_to);
+        RtUpgradeLogger(m_desc.Format, ugRT_RGBA8_to);
+      }
+      else if (m_desc.Format == D3D9Format::X8B8G8R8
+            && ugRT_RGBX8_to != D3D9Format::Unknown)
+      {
+        m_mapping = ConvertFormatUnfixed(ugRT_RGBX8_to);
+        RtUpgradeLogger(m_desc.Format, ugRT_RGBX8_to);
+      }
+      else if (m_desc.Format == D3D9Format::A8R8G8B8
+            && ugRT_BGRA8_to != D3D9Format::Unknown)
+      {
+        m_mapping = ConvertFormatUnfixed(ugRT_BGRA8_to);
+        RtUpgradeLogger(m_desc.Format, ugRT_BGRA8_to);
+      }
+      else if (m_desc.Format == D3D9Format::X8R8G8B8
+            && ugRT_BGRX8_to != D3D9Format::Unknown)
+      {
+        m_mapping = ConvertFormatUnfixed(ugRT_BGRX8_to);
+        RtUpgradeLogger(m_desc.Format, ugRT_BGRX8_to);
+      }
+      else if (m_desc.Format   == D3D9Format::A2B10G10R10
+            && ugRT_RGB10A2_to != D3D9Format::Unknown)
+      {
+        m_mapping = ConvertFormatUnfixed(ugRT_RGB10A2_to);
+        RtUpgradeLogger(m_desc.Format, ugRT_RGB10A2_to);
+      }
+      else if (m_desc.Format   == D3D9Format::A2R10G10B10
+            && ugRT_BGR10A2_to != D3D9Format::Unknown)
+      {
+        m_mapping = ConvertFormatUnfixed(ugRT_BGR10A2_to);
+        RtUpgradeLogger(m_desc.Format, ugRT_BGR10A2_to);
+      }
+      else
+      {
+        m_mapping = pDevice->LookupFormat(m_desc.Format);
+        FormatLogger(m_desc.Format, true);
+      }
+    }
+    else {
+      m_mapping = pDevice->LookupFormat(m_desc.Format);
+      if (m_desc.Usage & D3DUSAGE_RENDERTARGET) {
+        FormatLogger(m_desc.Format, true);
+      }
+      else {
+        FormatLogger(m_desc.Format, false);
+      }
+    }
 
     m_mapMode        = DetermineMapMode();
     m_shadow         = DetermineShadowState();
